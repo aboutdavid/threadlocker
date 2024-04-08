@@ -41,7 +41,7 @@ const app = new App({
         }
 
     });
-    app.shortcut('lock_thread', async ({ ack, body, say }) => { // This listens for the "lock thread shortcut"
+    app.shortcut('lock_thread', async ({ ack, body, say, client }) => { // This listens for the "lock thread shortcut"
         if (!body.message.thread_ts) return ack("❌ This is not a thread")  // Return if not a thread
         await ack(); // Let slack know we got the request. This is required.
 
@@ -50,6 +50,14 @@ const app = new App({
                 id: body.message.thread_ts
             }
         })
+
+        await client.views.open({
+            trigger_id: body.trigger_id,
+            view: require("./utils/modal.json")
+        })
+        return
+        // Move this code to the modal responder event!
+
         if (!thread) { // If the thread is not locked, lock it.
             await prisma.thread.create({ // Add thread lock to database
                 data: {
