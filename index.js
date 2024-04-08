@@ -20,6 +20,7 @@ const app = new App({
             }
         }) // Lookup and see if the thread is locked in the dataase
         try {
+            if (thread) {
             await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                 user: message.user,
                 channel: message.channel,
@@ -27,11 +28,11 @@ const app = new App({
                 text: `Please don't post here and delete your message. The thread is currently locked.`
             }) 
 
-            if (thread) await app.client.chat.delete({ // Delete the chat message 
+           await app.client.chat.delete({ // Delete the chat message 
                 channel: message.channel,
                 ts: message.ts
             }) 
-           
+        }
         } catch (e) {
             // Insufficent permissions, most likely.
             // An admin MUST authorise the bot.
