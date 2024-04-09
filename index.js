@@ -2,6 +2,7 @@ require('dotenv').config()
 const { App } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const actions = require("./utils/actions.js")
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     socketMode: true,
@@ -20,23 +21,9 @@ const app = new App({
             }
         })
         threads.forEach(async thread=>{
-            await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
-                channel: thread.channel,
-                thread_ts: thread.id,
-                text: "🔓 Thread unlocked as enough time has passed."
+            await actions.unlockThread({
+                app, thread_id: thread.id, channel_id: thread.channel, reason: "🔓 Thread unlocked as enough time has passed."
             })
-    
-            await app.client.reactions.remove({ // Remove lock reaction
-                channel: thread.channel,
-                name: "lock",
-                timestamp: thread.id
-            })
-            await prisma.thread.delete({ // Delete record from database
-                where: {
-                    id: thread.id
-                }
-            })
-    
         })
     }, 1000 * 60)
     app.view('lock_modal', async ({ view, ack, body }) => {
@@ -68,27 +55,7 @@ const app = new App({
         });
         await ack()
 
-        await prisma.thread.create({ // Add thread lock to database
-            data: {
-                id: thread_id,
-                admin: body.user.id,
-                lock_type: "test",
-                time: expires,
-                reason,
-                channel: channel_id
-            }
-        })
-        await app.client.chat.postMessage({ // Inform users in the thread that it is locked
-            channel: channel_id,
-            thread_ts: thread_id,
-            text: `🔒 Thread locked by <@${body.user.id}>. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
-
-        })
-        await app.client.reactions.add({ // Add lock reaction
-            channel: channel_id,
-            name: "lock",
-            timestamp: thread_id
-        })
+        await actions.lockThread({ thread_id, admin: body.user.id, lock_type: "test", time: expires, reason, channel_id, app })
     });
 
     app.message(/.*/gim, async ({ message, say, body, }) => { // Listen for all messages (/.*/gim is a regex)
@@ -114,21 +81,8 @@ const app = new App({
                     ts: message.ts
                 })
             } else if (thread && thread.time < new Date()) {
-                await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
-                    channel: message.channel,
-                    thread_ts: message.thread_ts,
-                    text: "🔓 Thread unlocked as enough time has passed."
-                })
-                await prisma.thread.delete({ // Delete record from database
-                    where: {
-                        id: message.thread_ts
-                    }
-                })
-
-                await app.client.reactions.remove({ // Remove lock reaction
-                    channel: message.channel,
-                    name: "lock",
-                    timestamp: message.thread_ts
+                await actions.unlockThread({
+                    app, thread_id: message.thread_ts, channel_id: message.channel, reason: `🔓 Thread unlocked as enough time has passed.`
                 })
             }
         } catch (e) {
@@ -177,20 +131,8 @@ const app = new App({
             })
         }
         else {
-            await prisma.thread.delete({ // Delete record from database
-                where: {
-                    id: body.message.thread_ts
-                }
-            })
-            await app.client.chat.postMessage({ // Inform users in the thread that it is unlocked
-                channel: body.channel.id,
-                thread_ts: body.message.thread_ts,
-                text: `🔓 Thread unlocked by <@${body.user.id}>`
-            })
-            await app.client.reactions.remove({ // Remove lock reaction
-                channel: body.channel.id,
-                name: "lock",
-                timestamp: body.message.thread_ts
+            await actions.unlockThread({
+                app, thread_id: body.message.thread_ts, channel_id: body.channel.id, reason: `🔓 Thread unlocked by <@${body.user.id}>`
             })
         }
         return
