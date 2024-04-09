@@ -11,6 +11,61 @@ const app = new App({
 
 
 (async () => {
+
+    app.view('lock_modal', async ({ view, ack, body }) => {
+        console.log(require('util').inspect(body, false, null, true))
+        var thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.split(" | ")[0].replace("Thread ID: ", "")
+        var channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.split(" | ")[1].replace("Channel ID: ", "") // this is so bad lol
+        // hopefully there is a better way of getting these two values
+        console.log(thread_id, channel_id)
+        const submittedValues = view.state.values
+        var reason, expires;
+
+        for (let key in submittedValues) {
+            if (submittedValues[key]['plain_text_input-action']) {
+                reason = submittedValues[key]['plain_text_input-action'].value;
+            } else if (submittedValues[key]['datetimepicker-action']) {
+                expires = new Date(submittedValues[key]['datetimepicker-action'].selected_date_time * 1000) // Why is slack obsessed with timestamps???
+            }
+        }
+        console.log(reason)
+        console.log(expires)
+        if (!reason) return await ack({
+            "response_action": "errors",
+            errors: {
+                "datetimepicker-action": "Time cannot be in the past."
+            }
+        });
+        if (new Date() > expires) return await ack({
+            "response_action": "errors",
+            errors: {
+                "datetimepicker-action": "Time cannot be in the past."
+            }
+        });
+        await ack()
+
+        await prisma.thread.create({ // Add thread lock to database
+            data: {
+                id: thread_id,
+                admin: body.user.id,
+                lock_type: "test",
+                time: expires,
+                reason
+            }
+        })
+        await app.client.chat.postMessage({ // Inform users in the thread that it is locked
+            channel: channel_id,
+            thread_ts: thread_id,
+            text: `🔒 Thread locked by <@${body.user.id}>. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
+
+        })
+        await app.client.reactions.add({ // Add lock reaction
+            channel: channel_id,
+            name: "lock",
+            timestamp: thread_id
+        })
+    });
+
     app.message(/.*/gim, async ({ message, say, body, }) => { // Listen for all messages (/.*/gim is a regex)
 
         if (!message.thread_ts) return // Return if not a thread
@@ -20,24 +75,25 @@ const app = new App({
             }
         }) // Lookup and see if the thread is locked in the dataase
         try {
-            if (thread) {
-            await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
-                user: message.user,
-                channel: message.channel,
-                thread_ts: message.thread_ts,
-                text: `Please don't post here and delete your message. The thread is currently locked.`
-            }) 
+            if (thread && thread.time > new Date()) {
+              
+                await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
+                    user: message.user,
+                    channel: message.channel,
+                    thread_ts: message.thread_ts,
+                    text: `Please don't post here and delete your message. The thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
+                })
 
-           await app.client.chat.delete({ // Delete the chat message 
-                channel: message.channel,
-                ts: message.ts
-            }) 
-        }
+                await app.client.chat.delete({ // Delete the chat message 
+                    channel: message.channel,
+                    ts: message.ts
+                })
+            }
         } catch (e) {
             // Insufficent permissions, most likely.
             // An admin MUST authorise the bot.
             console.error(e)
-            
+
         }
 
     });
@@ -50,34 +106,24 @@ const app = new App({
                 id: body.message.thread_ts
             }
         })
-
-        await client.views.open({
-            trigger_id: body.trigger_id,
-            view: require("./utils/modal.json")
-        })
-        return
-        // Move this code to the modal responder event!
-
-        if (!thread) { // If the thread is not locked, lock it.
-            await prisma.thread.create({ // Add thread lock to database
-                data: {
-                    id: body.message.thread_ts,
-                    admin: body.user.id
-                }
+        if (!thread) {
+            var modal = require("./utils/modal.json")
+            modal.blocks.push({
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "plain_text",
+                        "text": `Thread ID: ${body.message.thread_ts} | Channel ID: ${body.channel.id}`,
+                        "emoji": true
+                    }
+                ]
             })
-            await app.client.chat.postMessage({ // Inform users in the thread that it is locked
-                channel: body.channel.id,
-                thread_ts: body.message.thread_ts,
-                text: `🔒 Thread locked by <@${body.user.id}>`,
-                
-            })
-            await app.client.reactions.add({ // Add lock reaction
-                channel: body.channel.id,
-                name: "lock",
-                timestamp: body.message.thread_ts
+            return await client.views.open({
+                trigger_id: body.trigger_id,
+                view: { ...require("./utils/modal.json"), callback_id: "lock_modal" }
             })
         }
-        else { // If the thread is locked, unlock it.
+        else {
             await prisma.thread.delete({ // Delete record from database
                 where: {
                     id: body.message.thread_ts
@@ -94,7 +140,7 @@ const app = new App({
                 timestamp: body.message.thread_ts
             })
         }
-
+        return
     })
 
     console.log('⚡️ Bolt app is running!');

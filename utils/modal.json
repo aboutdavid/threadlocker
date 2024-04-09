@@ -46,28 +46,6 @@
         "text": "Expires",
         "emoji": true
       }
-    },
-    {
-      "type": "input",
-      "element": {
-        "type": "checkboxes",
-        "options": [
-          {
-            "text": {
-              "type": "plain_text",
-              "text": "Click here if it should never expire.",
-              "emoji": true
-            },
-            "value": "expiresatall"
-          }
-        ],
-        "action_id": "checkboxes-action"
-      },
-      "label": {
-        "type": "plain_text",
-        "text": "Options",
-        "emoji": true
-      }
     }
   ]
 }

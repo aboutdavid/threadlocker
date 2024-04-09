@@ -9,10 +9,10 @@ datasource db {
 }
 
 model Thread {
-  id        String   @id @unique
-  createdAt DateTime @default(now())
+  id        String    @id @unique
+  createdAt DateTime  @default(now())
   admin     String // Workspace ID NOT Global ID
-  lock_type       String
-  time           DateTime?
-  reason          String
+  lock_type String
+  time      DateTime?
+  reason    String
 }
