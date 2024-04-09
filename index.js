@@ -14,8 +14,8 @@ const app = new App({
 
     app.view('lock_modal', async ({ view, ack, body }) => {
         console.log(require('util').inspect(body, false, null, true))
-        var thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.split(" | ")[0].replace("Thread ID: ", "")
-        var channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.split(" | ")[1].replace("Channel ID: ", "") // this is so bad lol
+        var thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.replace("Thread ID: ", "")
+        var channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.replace("Channel ID: ", "") // this is so bad lol
         // hopefully there is a better way of getting these two values
         console.log(thread_id, channel_id)
         const submittedValues = view.state.values
@@ -113,7 +113,17 @@ const app = new App({
                 "fields": [
                     {
                         "type": "plain_text",
-                        "text": `Thread ID: ${body.message.thread_ts} | Channel ID: ${body.channel.id}`,
+                        "text": `Thread ID: ${body.message.thread_ts}`,
+                        "emoji": true
+                    }
+                ]
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "plain_text",
+                        "text": `Channel ID: ${body.channel.id}`,
                         "emoji": true
                     }
                 ]
