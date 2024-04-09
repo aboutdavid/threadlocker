@@ -8,6 +8,9 @@
     "@slack/bolt": "^3.17.1",
     "dotenv": "^16.4.5"
   },
+  "scripts": {
+    "dev": "nodemon"
+  },
   "devDependencies": {
     "prisma": "5.12.1"
   }
