@@ -139,9 +139,24 @@ const app = new App({
 
     });
 
-    app.shortcut('lock_thread', async ({ ack, body, say, client }) => { // This listens for the "lock thread shortcut"
-        if (!body.message.thread_ts) return ack("❌ This is not a thread")  // Return if not a thread
-        await ack(); // Let slack know we got the request. This is required.
+    app.shortcut('lock_thread', async ({ ack, body, say, client, respond }) => {         // This listens for the "lock thread shortcut"
+
+        await ack();
+        const user = await app.client.users.info({ user: body.user.id })
+
+
+        if (!body.message.thread_ts) return await client.chat.postEphemeral({
+            channel: body.channel.id,
+            user: body.user.id,
+            text: "❌ This is not a thread"
+        })
+        if (process.env.NODE_ENV == "production" && !user.user.is_admin)
+            return await client.chat.postEphemeral({
+                channel: body.channel.id,
+                user: body.user.id,
+                thread_ts: body.message.thread_ts,
+                text: "❌ Only admins can run this command."
+            })
 
         const thread = await prisma.thread.findFirst({ // Look up in the database if it exists
             where: {
@@ -197,7 +212,8 @@ const app = new App({
 
 
     await app.start();
-    console.log('⚡️ Bolt app is running!');
+    console.log('Threadlocker is running!');
+    if (process.env.NODE_ENV != "production") console.info("\u{2139}\u{FE0F} Please note: Threadlocker is in development mode.")
     await autoUnlock()
 
 })();
