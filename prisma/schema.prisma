@@ -16,4 +16,5 @@ model Thread {
   time      DateTime?
   reason    String
   channel   String
+  active    Boolean?    
 }
