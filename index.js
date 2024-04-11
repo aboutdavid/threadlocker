@@ -2,6 +2,7 @@ require('dotenv').config()
 const { App } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const reasonChannel = "C06UG012072"
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     socketMode: true,
@@ -26,7 +27,13 @@ const app = new App({
                 thread_ts: thread.id,
                 text: "🔓 Thread unlocked as enough time has passed."
             })
-
+            await app.client.chat.postMessage({
+                channel: reasonChannel,
+                text: `🔓 Thread unlocked in <#${thread.channel}>
+Reason: Autounlock (triggered by cron job)
+Admin: System
+Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
+            })
             await app.client.reactions.remove({ // Remove lock reaction
                 channel: thread.channel,
                 name: "lock",
@@ -47,7 +54,6 @@ const app = new App({
         // hopefully there is a better way of getting these two values
         const submittedValues = view.state.values
         let reason, expires;
-        const reasonChannel = "C06UG012072"
 
         for (let key in submittedValues) {
             if (submittedValues[key]['plain_text_input-action']) reason = submittedValues[key]['plain_text_input-action'].value
@@ -88,7 +94,11 @@ const app = new App({
 
         await app.client.chat.postMessage({
             channel: reasonChannel,
-            text: `🔒 Thread locked in <#${channel_id}> because of: ${reason}`
+            text: `🔒 Thread locked in <#${channel_id}>
+Reason: ${reason}
+Admin: <@${body.user.id}>
+Expires: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} (EST)
+Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().replace(".", "")}`
         })
 
         await app.client.reactions.add({ // Add lock reaction
@@ -108,24 +118,36 @@ const app = new App({
         }) // Lookup and see if the thread is locked in the dataase
         try {
             if (thread && thread.time > new Date()) {
+                const user = await app.client.users.info({ user: message.user })
+                if (!user.user.is_admin) {
 
-                await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
-                    user: message.user,
-                    channel: message.channel,
-                    thread_ts: message.thread_ts,
-                    text: `Please don't post here and delete your message. The thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
-                })
+                    await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
+                        user: message.user,
+                        channel: message.channel,
+                        thread_ts: message.thread_ts,
+                        text: `Please don't post here and delete your message. The thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
+                    })
 
-                await app.client.chat.delete({ // Delete the chat message 
-                    channel: message.channel,
-                    ts: message.ts
-                })
+                    await app.client.chat.delete({ // Delete the chat message 
+                        channel: message.channel,
+                        ts: message.ts
+                    })
+                }
             } else if (thread && thread.time < new Date()) {
                 await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                     channel: message.channel,
                     thread_ts: message.thread_ts,
                     text: "🔓 Thread unlocked as enough time has passed."
                 })
+
+                await app.client.chat.postMessage({
+                    channel: reasonChannel,
+                    text: `🔓 Thread unlocked in <#${message.channel}>
+Reason: Autounlock (triggered by message)
+Admin: System
+Link: https://hackclub.slack.com/archives/${thread.channell}/p${thread.id.toString().replace(".", "")}`
+                })
+
                 await prisma.thread.delete({ // Delete record from database
                     where: {
                         id: message.thread_ts
@@ -148,7 +170,6 @@ const app = new App({
     });
 
     app.shortcut('lock_thread', async ({ ack, body, say, client, respond }) => {         // This listens for the "lock thread shortcut"
-
         await ack();
         const user = await app.client.users.info({ user: body.user.id })
 
@@ -209,6 +230,14 @@ const app = new App({
                 thread_ts: body.message.thread_ts,
                 text: `🔓 Thread unlocked by <@${body.user.id}>`
             })
+            await app.client.chat.postMessage({
+                channel: reasonChannel,
+                text: `🔓 Thread unlocked in <#${body.channel.id}>
+Reason: Admin clicked unlock.
+Admin: <@${body.user.id}>
+Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
+            })
+
             await app.client.reactions.remove({ // Remove lock reaction
                 channel: body.channel.id,
                 name: "lock",
