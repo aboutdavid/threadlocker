@@ -46,7 +46,7 @@ const app = new App({
         const channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.replace("Channel ID: ", "") // this is so bad lol
         // hopefully there is a better way of getting these two values
         const submittedValues = view.state.values
-        var reason, expires;
+        let reason, expires;
 
         for (let key in submittedValues) {
             if (submittedValues[key]['plain_text_input-action']) reason = submittedValues[key]['plain_text_input-action'].value
@@ -74,7 +74,8 @@ const app = new App({
                 lock_type: "test",
                 time: expires,
                 reason,
-                channel: channel_id
+                channel: channel_id,
+                active: true
             }
         })
         await app.client.chat.postMessage({ // Inform users in the thread that it is locked
@@ -164,7 +165,7 @@ const app = new App({
             }
         })
         if (!thread) {
-            var modal = require("./utils/modal.json")
+            const modal = require("./utils/modal.json");
             modal.blocks.push({
                 "type": "section",
                 "fields": [

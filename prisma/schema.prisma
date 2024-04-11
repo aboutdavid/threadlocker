@@ -15,6 +15,6 @@ model Thread {
   lock_type String
   time      DateTime?
   reason    String
-  channel   String
+  channel   String?
   active    Boolean?    
 }
