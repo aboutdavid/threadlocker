@@ -11,7 +11,8 @@ const app = new App({
 
 
 (async () => {
-    setInterval(async function(){
+    async function autoUnlock() {
+        // Automatic unlocking, checks database once per minute
         const threads = await prisma.thread.findMany({
             where: {
                 time: {
@@ -19,13 +20,13 @@ const app = new App({
                 }
             }
         })
-        threads.forEach(async thread=>{
+        threads.forEach(async thread => {
             await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                 channel: thread.channel,
                 thread_ts: thread.id,
                 text: "🔓 Thread unlocked as enough time has passed."
             })
-    
+
             await app.client.reactions.remove({ // Remove lock reaction
                 channel: thread.channel,
                 name: "lock",
@@ -36,15 +37,14 @@ const app = new App({
                     id: thread.id
                 }
             })
-    
+
         })
-    }, 1000 * 60)
+    }
+    setInterval(autoUnlock, 1000 * 60)
     app.view('lock_modal', async ({ view, ack, body }) => {
-        console.log(require('util').inspect(body, false, null, true))
         const thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.replace("Thread ID: ", "")
         const channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.replace("Channel ID: ", "") // this is so bad lol
         // hopefully there is a better way of getting these two values
-        console.log(thread_id, channel_id)
         const submittedValues = view.state.values
         var reason, expires;
 
@@ -52,8 +52,7 @@ const app = new App({
             if (submittedValues[key]['plain_text_input-action']) reason = submittedValues[key]['plain_text_input-action'].value
             if (submittedValues[key]['datetimepicker-action']) expires = new Date(submittedValues[key]['datetimepicker-action'].selected_date_time * 1000)
         }
-        console.log(reason)
-        console.log(expires)
+
         if (!reason) return await ack({
             "response_action": "errors",
             errors: {
@@ -139,7 +138,7 @@ const app = new App({
         }
 
     });
-    
+
     app.shortcut('lock_thread', async ({ ack, body, say, client }) => { // This listens for the "lock thread shortcut"
         if (!body.message.thread_ts) return ack("❌ This is not a thread")  // Return if not a thread
         await ack(); // Let slack know we got the request. This is required.
@@ -196,8 +195,10 @@ const app = new App({
         return
     })
 
+
+    await app.start();
     console.log('⚡️ Bolt app is running!');
-    console.log(await app.start());
+    await autoUnlock()
 
 })();
 
