@@ -47,6 +47,7 @@ const app = new App({
         // hopefully there is a better way of getting these two values
         const submittedValues = view.state.values
         let reason, expires;
+        const reasonChannel = "C06UG012072"
 
         for (let key in submittedValues) {
             if (submittedValues[key]['plain_text_input-action']) reason = submittedValues[key]['plain_text_input-action'].value
@@ -84,6 +85,12 @@ const app = new App({
             text: `🔒 Thread locked by <@${body.user.id}>. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
 
         })
+
+        await app.client.chat.postMessage({
+            channel: reasonChannel,
+            text: `🔒 Thread locked in <#${channel_id}> because of: ${reason}`
+        })
+
         await app.client.reactions.add({ // Add lock reaction
             channel: channel_id,
             name: "lock",
