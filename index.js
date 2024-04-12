@@ -33,15 +33,15 @@ Reason: Autounlock (triggered by cron job)
 Admin: System
 Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
             })
-           try {
-            await app.client.reactions.remove({ // Remove lock reaction
-                channel: thread.channel,
-                name: "lock",
-                timestamp: thread.id
-            })
-           } catch (e){
-            
-           }
+            try {
+                await app.client.reactions.remove({ // Remove lock reaction
+                    channel: thread.channel,
+                    name: "lock",
+                    timestamp: thread.id
+                })
+            } catch (e) {
+
+            }
             await prisma.thread.update({ // Delete record from database
                 where: {
                     id: thread.id
@@ -129,11 +129,15 @@ Expires: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeS
 Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().replace(".", "")}`
         })
 
-        await app.client.reactions.add({ // Add lock reaction
-            channel: channel_id,
-            name: "lock",
-            timestamp: thread_id
-        })
+        try {
+            await app.client.reactions.add({ // Add lock reaction
+                channel: channel_id,
+                name: "lock",
+                timestamp: thread_id
+            })
+        } catch (e) {
+
+        }
     });
 
     app.message(/.*/gim, async ({ message, say, body, }) => { // Listen for all messages (/.*/gim is a regex)
@@ -274,11 +278,13 @@ Admin: <@${body.user.id}>
 Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
             })
 
-            await app.client.reactions.remove({ // Remove lock reaction
-                channel: body.channel.id,
-                name: "lock",
-                timestamp: body.message.thread_ts
-            })
+            try {
+                await app.client.reactions.remove({ // Remove lock reaction
+                    channel: body.channel.id,
+                    name: "lock",
+                    timestamp: body.message.thread_ts
+                })
+            } catch (e) { }
         }
         return
     })
