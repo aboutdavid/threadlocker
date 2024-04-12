@@ -39,9 +39,12 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                 name: "lock",
                 timestamp: thread.id
             })
-            await prisma.thread.delete({ // Delete record from database
+            await prisma.thread.update({ // Delete record from database
                 where: {
                     id: thread.id
+                },
+                data: {
+                    active: false
                 }
             })
 
@@ -73,18 +76,40 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             }
         });
         await ack()
-
-        await prisma.thread.create({ // Add thread lock to database
-            data: {
-                id: thread_id,
-                admin: body.user.id,
-                lock_type: "test",
-                time: expires,
-                reason,
-                channel: channel_id,
-                active: true
+        const thread = await prisma.thread.findFirst({
+            where: {
+                id: thread_id
             }
         })
+        if (!thread) {
+            await prisma.thread.create({ // Add thread lock to database
+                data: {
+                    id: thread_id,
+                    admin: body.user.id,
+                    lock_type: "test",
+                    time: expires,
+                    reason,
+                    channel: channel_id,
+                    active: true
+                }
+            })
+        } else {
+            await prisma.thread.update({ // Update thread lock in database
+                where: {
+                    id: thread_id
+                },
+                data: {
+                    id: thread_id,
+                    admin: body.user.id,
+                    lock_type: "test",
+                    time: expires,
+                    reason,
+                    channel: channel_id,
+                    active: true
+                }
+            })
+        }
+
         await app.client.chat.postMessage({ // Inform users in the thread that it is locked
             channel: channel_id,
             thread_ts: thread_id,
@@ -116,8 +141,9 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                 id: message.thread_ts
             }
         }) // Lookup and see if the thread is locked in the dataase
+        if (!thread) return
         try {
-            if (thread && thread.time > new Date()) {
+            if (thread.active && thread.time > new Date()) {
                 const user = await app.client.users.info({ user: message.user })
                 if (!user.user.is_admin) {
 
@@ -125,7 +151,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                         user: message.user,
                         channel: message.channel,
                         thread_ts: message.thread_ts,
-                        text: `Please don't post here and delete your message. The thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
+                        text: `Sorry, the thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
                     })
 
                     await app.client.chat.delete({ // Delete the chat message 
@@ -134,7 +160,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                         token: process.env.SLACK_USER_TOKEN
                     })
                 }
-            } else if (thread && thread.time < new Date()) {
+            } else if (thread.active && thread.time < new Date()) {
                 await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                     channel: message.channel,
                     thread_ts: message.thread_ts,
@@ -149,9 +175,12 @@ Admin: System
 Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
                 })
 
-                await prisma.thread.delete({ // Delete record from database
+                await prisma.thread.update({ // Delete record from database
                     where: {
                         id: message.thread_ts
+                    },
+                    data: {
+                        active: false
                     }
                 })
 
@@ -193,7 +222,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                 id: body.message.thread_ts
             }
         })
-        if (!thread) {
+        if (!thread || !thread.active) {
             const modal = require("./utils/modal.json");
             modal.blocks.push({
                 "type": "section",
@@ -257,17 +286,17 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
         'SLACK_APP_TOKEN',
         'SLACK_SIGNING_SECRET',
         'SLACK_USER_TOKEN'
-      ];
-    
-      envs.forEach((env) => {
+    ];
+
+    envs.forEach((env) => {
         if (!process.env[env]) {
-          console.error(`(fatal error) Please set the ${env} environment variable`);
-          process.exit(1);
+            console.error(`(fatal error) Please set the ${env} environment variable`);
+            process.exit(1);
         }
-      });
+    });
     await app.start();
     console.log('Threadlocker is running!');
-    
+
     if (process.env.NODE_ENV != "production") console.info("\u{2139}\u{FE0F} Please note: Threadlocker is in development mode.")
     await autoUnlock()
 
