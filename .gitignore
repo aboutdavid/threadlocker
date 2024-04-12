@@ -3,3 +3,7 @@ node_modules
 .env
 database.sqlite
 database.sqlite-journal
+.env*
+.flaskenv*
+!.env.project
+!.env.vault

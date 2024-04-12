@@ -130,7 +130,8 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
 
                     await app.client.chat.delete({ // Delete the chat message 
                         channel: message.channel,
-                        ts: message.ts
+                        ts: message.ts,
+                        token: process.env.SLACK_USER_TOKEN
                     })
                 }
             } else if (thread && thread.time < new Date()) {
