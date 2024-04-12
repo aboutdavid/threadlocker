@@ -248,9 +248,23 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
         return
     })
 
-
+    const envs = [
+        'DATABASE_URL',
+        'SLACK_BOT_TOKEN',
+        'SLACK_APP_TOKEN',
+        'SLACK_SIGNING_SECRET',
+        'SLACK_USER_TOKEN'
+      ];
+    
+      envs.forEach((env) => {
+        if (!process.env[env]) {
+          console.error(`(fatal error) Please set the ${env} environment variable`);
+          process.exit(1);
+        }
+      });
     await app.start();
     console.log('Threadlocker is running!');
+    
     if (process.env.NODE_ENV != "production") console.info("\u{2139}\u{FE0F} Please note: Threadlocker is in development mode.")
     await autoUnlock()
 
