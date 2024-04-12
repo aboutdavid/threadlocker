@@ -2,7 +2,6 @@ require('dotenv').config()
 const { App } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const reasonChannel = "C06UG012072"
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     socketMode: true,
@@ -28,7 +27,7 @@ const app = new App({
                 text: "🔓 Thread unlocked as enough time has passed."
             })
             await app.client.chat.postMessage({
-                channel: reasonChannel,
+                channel: process.env.SLACK_LOG_CHANNEL,
                 text: `🔓 Thread unlocked in <#${thread.channel}>
 Reason: Autounlock (triggered by cron job)
 Admin: System
@@ -118,7 +117,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         })
 
         await app.client.chat.postMessage({
-            channel: reasonChannel,
+            channel: process.env.SLACK_LOG_CHANNEL,
             text: `🔒 Thread locked in <#${channel_id}>
 Reason: ${reason}
 Admin: <@${body.user.id}>
@@ -168,7 +167,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                 })
 
                 await app.client.chat.postMessage({
-                    channel: reasonChannel,
+                    channel: process.env.SLACK_LOG_CHANNEL,
                     text: `🔓 Thread unlocked in <#${message.channel}>
 Reason: Autounlock (triggered by message)
 Admin: System
@@ -264,7 +263,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                 text: `🔓 Thread unlocked by <@${body.user.id}>`
             })
             await app.client.chat.postMessage({
-                channel: reasonChannel,
+                channel: process.env.SLACK_LOG_CHANNEL,
                 text: `🔓 Thread unlocked in <#${body.channel.id}>
 Reason: Admin clicked unlock.
 Admin: <@${body.user.id}>
