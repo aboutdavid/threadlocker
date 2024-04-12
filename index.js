@@ -146,7 +146,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                     text: `🔓 Thread unlocked in <#${message.channel}>
 Reason: Autounlock (triggered by message)
 Admin: System
-Link: https://hackclub.slack.com/archives/${thread.channell}/p${thread.id.toString().replace(".", "")}`
+Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
                 })
 
                 await prisma.thread.delete({ // Delete record from database
