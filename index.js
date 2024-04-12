@@ -221,10 +221,13 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             })
         }
         else {
-            await prisma.thread.delete({ // Delete record from database
+            await prisma.thread.update({ // Update from database
                 where: {
                     id: body.message.thread_ts
-                }
+                },
+                data: {
+                    active: false,
+                },
             })
             await app.client.chat.postMessage({ // Inform users in the thread that it is unlocked
                 channel: body.channel.id,
