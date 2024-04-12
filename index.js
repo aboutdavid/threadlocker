@@ -33,11 +33,15 @@ Reason: Autounlock (triggered by cron job)
 Admin: System
 Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
             })
+           try {
             await app.client.reactions.remove({ // Remove lock reaction
                 channel: thread.channel,
                 name: "lock",
                 timestamp: thread.id
             })
+           } catch (e){
+            
+           }
             await prisma.thread.update({ // Delete record from database
                 where: {
                     id: thread.id
@@ -301,3 +305,6 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
 
 })();
 
+process.on("unhandledRejection", (error) => {
+    console.error(error);
+});
