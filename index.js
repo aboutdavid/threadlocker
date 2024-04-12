@@ -2,6 +2,8 @@ require('dotenv').config()
 const { App } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const Sentry = require("@sentry/node");
+const { nodeProfilingIntegration } = require("@sentry/profiling-node")
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     socketMode: true,
@@ -9,9 +11,21 @@ const app = new App({
     signingSecret: process.env.SLACK_SIGNING_SECRET
 });
 
+Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+        nodeProfilingIntegration(),
+        new Sentry.Integrations.Prisma({ prisma })
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+});
+
 
 (async () => {
     async function autoUnlock() {
+        let span;
+        if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "unlock_thread_cron" });
         // Automatic unlocking, checks database once per minute
         const threads = await prisma.thread.findMany({
             where: {
@@ -52,9 +66,12 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             })
 
         })
+        if (process.env.SENTRY_DSN) span.end()
     }
     setInterval(autoUnlock, 1000 * 60)
     app.view('lock_modal', async ({ view, ack, body }) => {
+        let span;
+        if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "lock_thread" });
         const thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.replace("Thread ID: ", "")
         const channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.replace("Channel ID: ", "") // this is so bad lol
         // hopefully there is a better way of getting these two values
@@ -138,6 +155,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
         } catch (e) {
 
         }
+        if (process.env.SENTRY_DSN) span.end()
     });
 
     app.message(/.*/gim, async ({ message, say, body, }) => { // Listen for all messages (/.*/gim is a regex)
@@ -151,9 +169,11 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
         if (!thread) return
         try {
             if (thread.active && thread.time > new Date()) {
+
                 const user = await app.client.users.info({ user: message.user })
                 if (!user.user.is_admin) {
-
+                    let span;
+                    if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "delete_message" });
                     await app.client.chat.postEphemeral({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                         user: message.user,
                         channel: message.channel,
@@ -166,8 +186,11 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
                         ts: message.ts,
                         token: process.env.SLACK_USER_TOKEN
                     })
+                    if (process.env.SENTRY_DSN) span.end()
                 }
             } else if (thread.active && thread.time < new Date()) {
+                let span;
+                if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "unlock_thread_message" });
                 await app.client.chat.postMessage({ // Inform the user that the thread is currently locked. Do this first because deleting the message may not work.
                     channel: message.channel,
                     thread_ts: message.thread_ts,
@@ -196,6 +219,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                     name: "lock",
                     timestamp: message.thread_ts
                 })
+                if (process.env.SENTRY_DSN) span.end()
             }
         } catch (e) {
             // Insufficent permissions, most likely.
@@ -210,7 +234,6 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         await ack();
         const user = await app.client.users.info({ user: body.user.id })
 
-
         if (!body.message.thread_ts) return await client.chat.postEphemeral({
             channel: body.channel.id,
             user: body.user.id,
@@ -223,6 +246,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                 thread_ts: body.message.thread_ts,
                 text: "❌ Only admins can run this command."
             })
+
 
         const thread = await prisma.thread.findFirst({ // Look up in the database if it exists
             where: {
@@ -251,12 +275,15 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                         }
                     ]
                 })
+
             return await client.views.open({
                 trigger_id: body.trigger_id,
                 view: { ...require("./utils/modal.json"), callback_id: "lock_modal" }
             })
         }
         else {
+            let span;
+            if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "unlock_thread_admin" });
             await prisma.thread.update({ // Update from database
                 where: {
                     id: body.message.thread_ts
@@ -285,6 +312,7 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
                     timestamp: body.message.thread_ts
                 })
             } catch (e) { }
+            if (process.env.SENTRY_DSN) span.end()
         }
         return
     })
