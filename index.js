@@ -31,7 +31,8 @@ Sentry.init({
             where: {
                 time: {
                     lte: new Date()
-                }
+                },
+                active: true
             }
         })
         threads.forEach(async thread => {
