@@ -1,5 +1,5 @@
 const fs = require("fs")
-if (fs.existsSync(".env")) require('dotenv').config()
+if (fs.existsSync(".env")) return require('dotenv').config()
 if (!fs.existsSync(".env.vault") || !fs.existsSync(".env.keys")) throw new Error("No .env or .env.vault/.env.keys found.")
 
 if (process.env.NODE_ENV != "production") {
