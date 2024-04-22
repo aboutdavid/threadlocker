@@ -70,12 +70,18 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         if (process.env.SENTRY_DSN) span.end()
     }
     setInterval(autoUnlock, 1000 * 60)
-    app.view('lock_modal', async ({ view, ack, body }) => {
+    app.view('lock_modal', async ({ view, ack, body, respond }) => {
         let span;
         if (process.env.SENTRY_DSN) span = Sentry.startInactiveSpan({ name: "lock_thread" });
-        const thread_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Thread ID: ")).fields[0].text.replace("Thread ID: ", "")
-        const channel_id = view.blocks.find(block => block.type == "section" && block.fields && block.fields[0].text.includes("Channel ID: ")).fields[0].text.replace("Channel ID: ", "") // this is so bad lol
-        // hopefully there is a better way of getting these two values
+        try {
+            var json = JSON.parse(view.private_metadata)
+        } catch (e) {
+            await ack()
+            return respond("Something bad happened. Likely more than one instance is running.")
+        }
+        const thread_id = json.thread_id
+        const channel_id = json.channel_id
+
         const submittedValues = view.state.values
         let reason, expires;
 
@@ -256,30 +262,14 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         })
         if (!thread || !thread.active) {
             const modal = require("./utils/modal.json");
-            modal.blocks.push({
-                "type": "section",
-                "fields": [
-                    {
-                        "type": "plain_text",
-                        "text": `Thread ID: ${body.message.thread_ts}`,
-                        "emoji": true
-                    }
-                ]
-            },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "plain_text",
-                            "text": `Channel ID: ${body.channel.id}`,
-                            "emoji": true
-                        }
-                    ]
-                })
 
             return await client.views.open({
                 trigger_id: body.trigger_id,
-                view: { ...require("./utils/modal.json"), callback_id: "lock_modal" }
+                view: {
+                    ...require("./utils/modal.json"), callback_id: "lock_modal", private_metadata: JSON.stringify({
+                        thread_id: body.message.thread_ts, channel_id: body.channel.id
+                    })
+                }
             })
         }
         else {
