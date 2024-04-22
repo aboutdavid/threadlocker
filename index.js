@@ -93,7 +93,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         if (!reason) return await ack({
             "response_action": "errors",
             errors: {
-                "datetimepicker-action": "Time cannot be in the past."
+                "datetimepicker-action": "Please provide a reason."
             }
         });
         if (new Date() > expires) return await ack({
