@@ -1,4 +1,4 @@
-require("./utils/loadenv.js") // Load env from encrypted storage.
+require('dotenv').config()
 const { App } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
