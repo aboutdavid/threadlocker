@@ -140,7 +140,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         await app.client.chat.postMessage({ // Inform users in the thread that it is locked
             channel: channel_id,
             thread_ts: thread_id,
-            text: `🔒 Thread locked by <@${body.user.id}>. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
+            text: `🔒 Thread locked. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
 
         })
 
@@ -286,7 +286,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             await app.client.chat.postMessage({ // Inform users in the thread that it is unlocked
                 channel: body.channel.id,
                 thread_ts: body.message.thread_ts,
-                text: `🔓 Thread unlocked by <@${body.user.id}>`
+                text: `🔓 Thread unlocked.`
             })
             await app.client.chat.postMessage({
                 channel: process.env.SLACK_LOG_CHANNEL,
