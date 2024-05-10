@@ -148,10 +148,10 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             channel: process.env.SLACK_LOG_CHANNEL,
             text: `🔒 Thread locked in <#${channel_id}>
 Reason: ${reason}
-Admin: <@${body.user.id}>
 Expires: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} (EST)
 Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().replace(".", "")}`
         })
+// Admin: <@${body.user.id}>
 
         try {
             await app.client.reactions.add({ // Add lock reaction
@@ -292,10 +292,9 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
                 channel: process.env.SLACK_LOG_CHANNEL,
                 text: `🔓 Thread unlocked in <#${body.channel.id}>
 Reason: Admin clicked unlock.
-Admin: <@${body.user.id}>
 Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
             })
-
+// Admin: <@${body.user.id}>
             try {
                 await app.client.reactions.remove({ // Remove lock reaction
                     channel: body.channel.id,
