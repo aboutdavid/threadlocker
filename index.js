@@ -6,9 +6,10 @@ const Sentry = require("@sentry/node");
 const { nodeProfilingIntegration } = require("@sentry/profiling-node")
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
-    socketMode: true,
+    socketMode: false,
     appToken: process.env.SLACK_APP_TOKEN,
-    signingSecret: process.env.SLACK_SIGNING_SECRET
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
+    port: 3008
 });
 
 Sentry.init({
@@ -321,7 +322,7 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
             process.exit(1);
         }
     });
-    await app.start();
+    await app.start({ port: process.env.PORT || 3008 });
     console.log('Threadlocker is running!');
 
     if (process.env.NODE_ENV != "production") console.info("\u{2139}\u{FE0F} Please note: Threadlocker is in development mode.")
