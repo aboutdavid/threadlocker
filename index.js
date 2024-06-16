@@ -152,7 +152,7 @@ Reason: ${reason}
 Expires: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} (EST)
 Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().replace(".", "")}`
         })
-// Admin: <@${body.user.id}>
+        // Admin: <@${body.user.id}>
 
         try {
             await app.client.reactions.add({ // Add lock reaction
@@ -177,7 +177,13 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
         if (!thread) return
         try {
             if (thread.active && thread.time > new Date()) {
+                try {
+                    await app.client.conversations.join({
+                        channel: message.channel,
+                    });
+                } catch (e) {
 
+                }
                 const user = await app.client.users.info({ user: message.user })
                 if (!user.user.is_admin) {
                     let span;
@@ -238,8 +244,15 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
 
     });
 
-    app.shortcut('lock_thread', async ({ ack, body, say, client, respond }) => {         // This listens for the "lock thread shortcut"
+    app.shortcut('lock_thread', async ({ ack, body, say, client, respond }) => {
         await ack();
+        try {
+            await app.client.conversations.join({
+                channel: body.channel.id,
+            });
+        } catch (e) {
+
+        }
         const user = await app.client.users.info({ user: body.user.id })
 
         if (!body.message.thread_ts) return await client.chat.postEphemeral({
@@ -247,7 +260,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
             user: body.user.id,
             text: "❌ This is not a thread"
         })
-        if (process.env.NODE_ENV == "production" && !user.user.is_admin)
+        if (!user.user.is_admin)
             return await client.chat.postEphemeral({
                 channel: body.channel.id,
                 user: body.user.id,
@@ -295,7 +308,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
 Reason: Admin clicked unlock.
 Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
             })
-// Admin: <@${body.user.id}>
+            // Admin: <@${body.user.id}>
             try {
                 await app.client.reactions.remove({ // Remove lock reaction
                     channel: body.channel.id,
