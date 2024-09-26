@@ -1,16 +1,79 @@
 require('dotenv').config()
-const { App } = require('@slack/bolt');
+const { App, ExpressReceiver } = require('@slack/bolt');
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+
+const receiver = new ExpressReceiver({
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
 
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     socketMode: false,
     appToken: process.env.SLACK_APP_TOKEN,
     signingSecret: process.env.SLACK_SIGNING_SECRET,
-    port: 3008
+    port: 3008,
+    receiver
 });
+receiver.router.get("/lock", async (req, res) => {
+    const { key } = req.query
+    if (!process.env.API_KEY || key !== process.env.API_KEY) return res.status(401).json({ ok: false, error: "Please provide a valid API key" })
+    return await prisma.thread.findMany({
+        where: {}
+    })
+});
+receiver.router.post("/lock", async (req, res) => {
+    const { id, user, time, reason, channel, key } = req.query
+    if (!process.env.API_KEY || key !== process.env.API_KEY) return res.status(401).json({ ok: false, error: "Please provide a valid API key" })
+    if (!id || !user || !time || isNaN(time) || !channel) return res.status(400).json({ ok: false, error: "Give all of the fields" })
+    const thread = await prisma.thread.findFirst({
+        where: {
+            id: id
+        }
+    })
+    var action = ""
+    if (!thread) {
+        await prisma.thread.create({
+            data: {
+                id: id,
+                admin: user,
+                lock_type: "test",
+                time: time,
+                reason,
+                channel: channel,
+                active: true
+            }
+        })
+        action = "locked"
+    } else if (thread.active) {
+        await prisma.thread.update({
+            where: {
+                id: id
+            },
+            data: {
+                id: id,
+                admin: user,
+                active: false
+            }
+        })
+        action = "unlocked"
+    } else {
+        await prisma.thread.update({
+            where: {
+                id: id
+            },
+            data: {
+                id: id,
+                admin: user,
+                time: time,
+                active: true
+            }
+        })
+        action = "locked"
+    }
+    res.json({ success: true, action })
 
+});
 (async () => {
     async function autoUnlock() {
         let span;
