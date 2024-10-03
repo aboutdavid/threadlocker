@@ -25,6 +25,7 @@ receiver.router.get("/lock", async (req, res) => {
 receiver.router.post("/lock", async (req, res) => {
     const { id, user, time, reason, channel, key } = req.query
     if (!process.env.API_KEY || key !== process.env.API_KEY) return res.status(401).json({ ok: false, error: "Please provide a valid API key" })
+    time = new Date(time).toISOString()
     if (!id || !user || !time || isNaN(new Date(time)) || !channel) return res.status(400).json({ ok: false, error: "Give all of the fields" })
     const thread = await prisma.thread.findFirst({
         where: {
@@ -38,7 +39,7 @@ receiver.router.post("/lock", async (req, res) => {
                 id: id,
                 admin: user,
                 lock_type: "test",
-                time: new Date(time),
+                time: time,
                 reason,
                 channel: channel,
                 active: true
