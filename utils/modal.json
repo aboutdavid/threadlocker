@@ -1,51 +1,73 @@
 {
-  "title": {
-    "type": "plain_text",
-    "text": "Lock the thread",
-    "emoji": true
-  },
-  "submit": {
-    "type": "plain_text",
-    "text": "Submit",
-    "emoji": true
-  },
-  "type": "modal",
-  "close": {
-    "type": "plain_text",
-    "text": "Cancel",
-    "emoji": true
-  },
-  "blocks": [
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "Use this modal to lock the thread. Please note, this is logged."
-      }
-    },
-    {
-      "type": "input",
-      "element": {
-        "type": "plain_text_input",
-        "action_id": "plain_text_input-action"
-      },
-      "label": {
-        "type": "plain_text",
-        "text": "Reason",
-        "emoji": true
-      }
-    },
-    {
-      "type": "input",
-      "element": {
-        "type": "datetimepicker",
-        "action_id": "datetimepicker-action"
-      },
-      "label": {
-        "type": "plain_text",
-        "text": "Expires",
-        "emoji": true
-      }
-    }
-  ]
+	"title": {
+		"type": "plain_text",
+		"text": "Lock the thread",
+		"emoji": true
+	},
+	"submit": {
+		"type": "plain_text",
+		"text": "Submit",
+		"emoji": true
+	},
+	"type": "modal",
+	"close": {
+		"type": "plain_text",
+		"text": "Cancel",
+		"emoji": true
+	},
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "Use this modal to lock the thread. Please note, this is logged."
+			}
+		},
+		{
+			"type": "input",
+			"element": {
+				"type": "plain_text_input",
+				"action_id": "plain_text_input-action"
+			},
+			"label": {
+				"type": "plain_text",
+				"text": "Reason",
+				"emoji": true
+			}
+		},
+		{
+			"type": "input",
+			"element": {
+				"type": "datetimepicker",
+				"action_id": "datetimepicker-action"
+			},
+			"label": {
+				"type": "plain_text",
+				"text": "Expires",
+				"emoji": true
+			}
+		},
+		{
+			"type": "actions",
+			"elements": [
+				{
+					"type": "checkboxes",
+					"options": [
+						{
+							"text": {
+								"type": "mrkdwn",
+								"text": "Lock indefinitely"
+							},
+							"description": {
+								"type": "mrkdwn",
+								"text": "This option allows you to lock a thread *indefinitely*"
+							},
+							"value": "indefinitely"
+						}
+					],
+					"action_id": "indefinitely"
+				}
+			]
+		}
+	]
 }
