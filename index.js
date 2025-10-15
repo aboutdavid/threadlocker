@@ -24,16 +24,19 @@ receiver.router.get("/lock", async (req, res) => {
   return threads;
 });
 receiver.router.post("/lock", async (req, res) => {
-  const { id, user, time, reason, channel, key } = req.query
+  const { id, user, time: timeRaw, reason, channel, key } = req.query
   if (!process.env.API_KEY || key !== process.env.API_KEY) return res.status(401).json({ ok: false, error: "Please provide a valid API key" })
-  time = new Date(time).toISOString()
-  if (!id || !user || !time || isNaN(new Date(time)) || !channel) return res.status(400).json({ ok: false, error: "Give all of the fields" })
+  // parse time into Date object
+  const time = timeRaw ? new Date(timeRaw) : null
+  const reasonVal = reason ?? "(none)"
+  if (!id || !user || !timeRaw || !time || isNaN(time.getTime()) || !channel) return res.status(400).json({ ok: false, error: "Give all of the fields" })
   const thread = await prisma.thread.findFirst({
     where: {
       id: id
     }
   })
   var action = ""
+
   if (!thread) {
     await prisma.thread.create({
       data: {
@@ -42,6 +45,17 @@ receiver.router.post("/lock", async (req, res) => {
         lock_type: "test",
         time: time,
         reason,
+        channel: channel,
+        active: true
+      }
+    })
+    await prisma.log.create({
+      data: {
+        thread_id: id,
+        admin: user,
+        lock_type: "lock",
+        time: time,
+        reason: reasonVal,
         channel: channel,
         active: true
       }
@@ -58,6 +72,17 @@ receiver.router.post("/lock", async (req, res) => {
         active: false
       }
     })
+     await prisma.log.create({
+      data: {
+        thread_id: id,
+        admin: user,
+        lock_type: "unlock",
+        time: time,
+        reason: reasonVal,
+        channel: channel,
+        active: false
+      }
+    })
     action = "unlocked"
   } else {
     await prisma.thread.update({
@@ -68,6 +93,17 @@ receiver.router.post("/lock", async (req, res) => {
         id: id,
         admin: user,
         time: time,
+        active: true
+      }
+    })
+    await prisma.log.create({
+      data: {
+        thread_id: id,
+        admin: user,
+        lock_type: "lock",
+        time: time,
+        reason: reasonVal,
+        channel: channel,
         active: true
       }
     })
@@ -95,6 +131,17 @@ Reason: Autounlock (triggered by cron job)
 Admin: System
 Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
       })
+      await prisma.log.create({
+      data: {
+        thread_id: thread.id,
+        admin: "system",
+        lock_type: "unlock",
+        time: new Date(),
+        reason: "Autounlock (cron job)",
+        channel: thread.channel,
+        active: false
+      }
+    })
       try {
         await app.client.reactions.remove({ // Remove lock reaction
           channel: thread.channel,
@@ -154,6 +201,17 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
       }
     })
     if (!thread) {
+       await prisma.log.create({ // Add thread lock to database
+        data: {
+          thread_id: thread_id,
+          admin: body.user.id,
+          lock_type: "lock",
+          time: expires,
+          reason,
+          channel: channel_id,
+          active: true
+        }
+      })
       await prisma.thread.create({ // Add thread lock to database
         data: {
           id: thread_id,
@@ -174,6 +232,17 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
           id: thread_id,
           admin: body.user.id,
           lock_type: "test",
+          time: expires,
+          reason,
+          channel: channel_id,
+          active: true
+        }
+      })
+      await prisma.log.create({ // Add thread lock to database
+        data: {
+          thread_id: thread_id,
+          admin: body.user.id,
+          lock_type: "lock",
           time: expires,
           reason,
           channel: channel_id,
@@ -233,7 +302,7 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
             user: message.user,
             channel: message.channel,
             thread_ts: message.thread_ts,
-            text: `Sorry, the thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST`
+            text: `Sorry, the thread is currently locked until ${thread.time.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST. For reference, your message was: \`${message.text}\``
           })
 
           await app.client.chat.delete({ // Delete the chat message 
@@ -295,6 +364,17 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         id: body.message.thread_ts
       }
     })
+      await prisma.log.create({
+        data: {
+          thread_id: body.message.thread_ts,
+          admin: body.user.id,
+          lock_type: "lock",
+          time: new Date('9999-01-01T00:00:00.000Z'),
+          reason: "(none)",
+          channel: body.channel.id,
+          active: true
+        }
+      })
     if (!thread) {
       await prisma.thread.create({ // Add thread lock to database
         data: {

@@ -16,5 +16,17 @@ model Thread {
   time      DateTime?
   reason    String
   channel   String?
-  active    Boolean?    
+  active    Boolean?
+}
+
+model Log {
+  id        String    @id @unique @default(nanoid())
+  thread_id String
+  createdAt DateTime  @default(now())
+  admin     String // Workspace ID NOT Global ID
+  lock_type String
+  time      DateTime?
+  reason    String
+  channel   String?
+  active    Boolean?
 }
