@@ -72,7 +72,7 @@ receiver.router.post("/lock", async (req, res) => {
         active: false
       }
     })
-     await prisma.log.create({
+    await prisma.log.create({
       data: {
         thread_id: id,
         admin: user,
@@ -125,6 +125,13 @@ receiver.router.post("/lock", async (req, res) => {
     })
     threads.forEach(async thread => {
       await app.client.chat.postMessage({
+        channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
+        text: `🔓 Thread unlocked in <#${thread.channel}>
+Reason: Autounlock (triggered by cron job)
+Admin: System
+Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
+      })
+      await app.client.chat.postMessage({
         channel: process.env.SLACK_LOG_CHANNEL,
         text: `🔓 Thread unlocked in <#${thread.channel}>
 Reason: Autounlock (triggered by cron job)
@@ -132,16 +139,16 @@ Admin: System
 Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
       })
       await prisma.log.create({
-      data: {
-        thread_id: thread.id,
-        admin: "system",
-        lock_type: "unlock",
-        time: new Date(),
-        reason: "Autounlock (cron job)",
-        channel: thread.channel,
-        active: false
-      }
-    })
+        data: {
+          thread_id: thread.id,
+          admin: "system",
+          lock_type: "unlock",
+          time: new Date(),
+          reason: "Autounlock (cron job)",
+          channel: thread.channel,
+          active: false
+        }
+      })
       try {
         await app.client.reactions.remove({ // Remove lock reaction
           channel: thread.channel,
@@ -201,7 +208,7 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
       }
     })
     if (!thread) {
-       await prisma.log.create({ // Add thread lock to database
+      await prisma.log.create({ // Add thread lock to database
         data: {
           thread_id: thread_id,
           admin: body.user.id,
@@ -257,7 +264,14 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
       text: `🔒 Thread locked. Reason: ${reason} (until: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} EST)`,
 
     })
-
+    await app.client.chat.postMessage({
+      channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
+      text: `🔒 Thread locked in <#${channel_id}>
+Reason: ${reason}
+Admin: <@${body.user.id}>
+Expires: ${expires.toLocaleString('en-US', { timeZone: 'America/New_York', timeStyle: "short", dateStyle: "long" })} (EST)
+Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().replace(".", "")}`
+    })
     await app.client.chat.postMessage({
       channel: process.env.SLACK_LOG_CHANNEL,
       text: `🔒 Thread locked in <#${channel_id}>
@@ -313,6 +327,13 @@ Link: https://hackclub.slack.com/archives/${channel_id}/p${thread_id.toString().
         }
       } else if (thread.active && thread.time < new Date()) {
 
+        await app.client.chat.postMessage({
+          channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
+          text: `🔓 Thread unlocked in <#${message.channel}>
+Reason: Autounlock (triggered by message)
+Admin: System
+Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toString().replace(".", "")}`
+        })
 
         await app.client.chat.postMessage({
           channel: process.env.SLACK_LOG_CHANNEL,
@@ -364,17 +385,17 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
         id: body.message.thread_ts
       }
     })
-      await prisma.log.create({
-        data: {
-          thread_id: body.message.thread_ts,
-          admin: body.user.id,
-          lock_type: "lock",
-          time: new Date('9999-01-01T00:00:00.000Z'),
-          reason: "(none)",
-          channel: body.channel.id,
-          active: true
-        }
-      })
+    await prisma.log.create({
+      data: {
+        thread_id: body.message.thread_ts,
+        admin: body.user.id,
+        lock_type: "lock",
+        time: new Date('9999-01-01T00:00:00.000Z'),
+        reason: "(none)",
+        channel: body.channel.id,
+        active: true
+      }
+    })
     if (!thread) {
       await prisma.thread.create({ // Add thread lock to database
         data: {
@@ -408,7 +429,13 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
       thread_ts: body.message.thread_ts,
       text: `🔒 Thread locked indefinitely.`,
     })
-
+    await app.client.chat.postMessage({
+      channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
+      text: `🔒 Thread locked in <#${body.channel.id}> indefinitely
+Reason: ${reason}
+Admin: ${body.user.id}
+Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
+    })
     await app.client.chat.postMessage({
       channel: process.env.SLACK_LOG_CHANNEL,
       text: `🔒 Thread locked in <#${body.channel.id}> indefinitely
@@ -467,7 +494,13 @@ Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thr
           active: false,
         },
       })
-
+      await app.client.chat.postMessage({
+        channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
+        text: `🔓 Thread unlocked in <#${body.channel.id}>
+Reason: Admin clicked unlock.
+Admin: ${body.user.id}
+Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
+      })
       await app.client.chat.postMessage({
         channel: process.env.SLACK_LOG_CHANNEL,
         text: `🔓 Thread unlocked in <#${body.channel.id}>
