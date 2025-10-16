@@ -432,14 +432,14 @@ Link: https://hackclub.slack.com/archives/${thread.channel}/p${thread.id.toStrin
     await app.client.chat.postMessage({
       channel: process.env.SLACK_DETAILED_LOG_CHANNEL,
       text: `🔒 Thread locked in <#${body.channel.id}> indefinitely
-Reason: ${reason}
+Reason: (none)
 Admin: ${body.user.id}
 Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
     })
     await app.client.chat.postMessage({
       channel: process.env.SLACK_LOG_CHANNEL,
       text: `🔒 Thread locked in <#${body.channel.id}> indefinitely
-Reason: ${reason}
+Reason: (none)
 Link: https://hackclub.slack.com/archives/${body.channel.id}/p${body.message.thread_ts.toString().replace(".", "")}`
     })
   })
